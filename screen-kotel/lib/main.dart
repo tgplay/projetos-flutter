@@ -8,11 +8,12 @@ class MeuApp extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
+          centerTitle: true,
           title: Text('Meu primeiro App'),
         ),
         body: Column(
           children: [
-            Image.asset('imagens/muro.jpg'),
+            Image.asset('assets/muro.jpg'),
             Container(
               padding: EdgeInsets.all(20),
               child: Row(
@@ -25,6 +26,9 @@ class MeuApp extends StatelessWidget {
                         Text('Jerusalém, Israel'),
                       ],
                     ),
+                  ),
+                  Row(
+                    children: [Icon(Icons.star, color: Colors.blue), Text('5')],
                   )
                 ],
               ),
