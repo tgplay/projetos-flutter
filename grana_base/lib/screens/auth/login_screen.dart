@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
 
@@ -11,10 +12,40 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _lastEmailKey = 'last_login_email';
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLogin = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastEmail();
+  }
+
+  Future<void> _loadLastEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString(_lastEmailKey);
+
+      if (savedEmail != null && savedEmail.isNotEmpty) {
+        _emailController.text = savedEmail;
+      }
+    } catch (e) {
+      debugPrint('LoginScreen _loadLastEmail error: $e');
+    }
+  }
+
+  Future<void> _saveLastEmail(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastEmailKey, email);
+    } catch (e) {
+      debugPrint('LoginScreen _saveLastEmail error: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -37,6 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
       success = await authProvider.signIn(email: email, password: password);
     } else {
       success = await authProvider.signUp(email: email, password: password);
+    }
+
+    if (success) {
+      await _saveLastEmail(email);
     }
 
     if (!mounted) return;
