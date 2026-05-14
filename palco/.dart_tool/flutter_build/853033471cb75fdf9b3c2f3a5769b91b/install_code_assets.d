@@ -1,0 +1,1 @@
+ /var/www/projetos-flutter/palco/.dart_tool/flutter_build/853033471cb75fdf9b3c2f3a5769b91b/native_assets.json: 
