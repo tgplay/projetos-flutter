@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import 'auth_gate.dart';
+import '../screens/splash/splash_screen.dart';
 
 class AppWidget extends StatelessWidget {
   const AppWidget({super.key});
@@ -23,7 +23,7 @@ class AppWidget extends StatelessWidget {
             border: OutlineInputBorder(),
           ),
         ),
-        home: const AuthGate(),
+        home: const SplashScreen(),
       ),
     );
   }

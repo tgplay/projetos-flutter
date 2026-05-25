@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "GranaBase API",
+      "type": "dart",
+      "request": "launch",
+      "program": "bin/server.dart"
+    }
+  ]
+}

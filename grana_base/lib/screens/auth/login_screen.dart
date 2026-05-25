@@ -75,16 +75,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (!mounted) return;
-
-    if (!_isLogin && success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cadastro realizado. Verifique seu email para confirmar a conta.',
-          ),
-        ),
-      );
-    }
   }
 
   @override

@@ -9,8 +9,11 @@ import '../../services/transaction_service.dart';
 import '../reserve/add_reserve_contribution_screen.dart';
 import '../reserve/add_reserve_goal_screen.dart';
 import '../reserve/reserve_contributions_screen.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/utils/formatters.dart';
+import '../../providers/auth_provider.dart';
 import '../transactions/add_transaction_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +29,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ReserveContributionService();
 
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  int _page = 1;
+  bool _hasMore = false;
+
+  double _totalIncome = 0;
+  double _totalExpense = 0;
+  double get _balance => _totalIncome - _totalExpense;
+
   List<TransactionModel> _transactions = [];
   ReserveGoalModel? _reserveGoal;
   List<ReserveContributionModel> _reserveContributions = [];
@@ -59,26 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirmed != true) return;
 
-    try {
-      await Supabase.instance.client.auth.signOut();
-
-      if (!mounted) return;
-
-      // Se você usa um AuthGate observando o estado de auth,
-      // ele deve redirecionar automaticamente ao perceber o logout.
-      // Aqui só damos um feedback rápido.
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Você saiu da sua conta.')));
-    } catch (e) {
-      debugPrint('HomeScreen _confirmAndLogout error: $e');
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao sair: $e')));
-    }
+    if (!mounted) return;
+    await context.read<AuthProvider>().signOut();
   }
 
   Future<void> _goToReserveContributions() async {
@@ -93,49 +86,70 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadHomeData() async {
     setState(() {
       _isLoading = true;
+      _page = 1;
+      _hasMore = false;
+      _transactions = [];
     });
 
     try {
-      final transactions = await _transactionService.getRecentTransactions();
-      final reserveGoal = await _reserveGoalService.getReserveGoal();
-      final reserveContributions = await _reserveContributionService
-          .getAllContributions();
+      final results = await Future.wait([
+        _transactionService.getSummary(),
+        _transactionService.getTransactions(page: 1),
+        _reserveGoalService.getReserveGoal(),
+        _reserveContributionService.getAllContributions(),
+      ]);
 
+      final summary = results[0] as TransactionSummary;
+      final transactions = results[1] as List<TransactionModel>;
+      final reserveGoal = results[2] as ReserveGoalModel?;
+      final reserveContributions = results[3] as List<ReserveContributionModel>;
+
+      if (!mounted) return;
       setState(() {
+        _totalIncome = summary.totalIncome;
+        _totalExpense = summary.totalExpense;
         _transactions = transactions;
+        _hasMore = transactions.length == TransactionService.pageSize;
         _reserveGoal = reserveGoal;
         _reserveContributions = reserveContributions;
       });
     } catch (e) {
       debugPrint('HomeScreen _loadHomeData error: $e');
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar dados da Home: $e')),
+        SnackBar(content: Text('Erro ao carregar dados: $e')),
       );
     } finally {
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
-  double get _totalIncome {
-    return _transactions
-        .where((transaction) => transaction.type == 'income')
-        .fold(0.0, (sum, transaction) => sum + transaction.amount);
-  }
+  Future<void> _loadMoreTransactions() async {
+    if (_isLoadingMore || !_hasMore) return;
 
-  double get _totalExpense {
-    return _transactions
-        .where((transaction) => transaction.type == 'expense')
-        .fold(0.0, (sum, transaction) => sum + transaction.amount);
-  }
+    setState(() => _isLoadingMore = true);
 
-  double get _balance => _totalIncome - _totalExpense;
+    try {
+      final nextPage = _page + 1;
+      final more = await _transactionService.getTransactions(page: nextPage);
+
+      if (!mounted) return;
+      setState(() {
+        _transactions = [..._transactions, ...more];
+        _page = nextPage;
+        _hasMore = more.length == TransactionService.pageSize;
+      });
+    } catch (e) {
+      debugPrint('HomeScreen _loadMoreTransactions error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar mais: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
 
   double get _totalReserveContributions {
     return _reserveContributions.fold(
@@ -181,9 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Faltam ${_formatCurrency(_remainingReserveAmount)} para a meta';
   }
 
-  String _formatCurrency(double value) {
-    return 'R\$ ${value.toStringAsFixed(2)}';
-  }
+  String _formatCurrency(double value) => formatCurrency(value);
 
   String _formatPercentage(double value) {
     return '${(value * 100).toStringAsFixed(1)}%';
@@ -391,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text('Nenhuma transação cadastrada ainda.'),
                       ),
                     )
-                  else
+                  else ...[
                     ..._transactions.map(
                       (transaction) => Card(
                         child: ListTile(
@@ -440,6 +452,29 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    if (_isLoadingMore)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (_hasMore)
+                      TextButton.icon(
+                        onPressed: _loadMoreTransactions,
+                        icon: const Icon(Icons.expand_more),
+                        label: const Text('Carregar mais'),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: Text(
+                            'Todas as transações carregadas',
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),

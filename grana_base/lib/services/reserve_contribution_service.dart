@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
+import '../core/services/api_client.dart';
 import '../models/reserve_contribution_model.dart';
 
 class ReserveContributionService {
-  final SupabaseClient _supabase = Supabase.instance.client;
-
   Future<void> createContribution({
     required String reserveGoalId,
     required double amount,
@@ -13,24 +13,17 @@ class ReserveContributionService {
     required DateTime contributionDate,
   }) async {
     try {
-      final user = _supabase.auth.currentUser;
-
-      if (user == null) {
-        throw Exception('Usuário não autenticado.');
-      }
-
-      await _supabase.from('reserve_contributions').insert({
-        'user_id': user.id,
+      final response = await ApiClient.post('/reserve-contributions/', {
         'reserve_goal_id': reserveGoalId,
         'amount': amount,
         'description': description,
-        'contribution_date': contributionDate
-            .toIso8601String()
-            .split('T')
-            .first,
+        'contribution_date': contributionDate.toIso8601String().split('T').first,
       });
 
-      debugPrint('ReserveContributionService: aporte criado com sucesso.');
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(data['error'] ?? 'Erro ao criar aporte.');
+      }
     } catch (e) {
       debugPrint('ReserveContributionService.createContribution error: $e');
       rethrow;
@@ -44,26 +37,16 @@ class ReserveContributionService {
     required DateTime contributionDate,
   }) async {
     try {
-      final user = _supabase.auth.currentUser;
+      final response = await ApiClient.put('/reserve-contributions/$contributionId', {
+        'amount': amount,
+        'description': description,
+        'contribution_date': contributionDate.toIso8601String().split('T').first,
+      });
 
-      if (user == null) {
-        throw Exception('Usuário não autenticado.');
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(data['error'] ?? 'Erro ao atualizar aporte.');
       }
-
-      await _supabase
-          .from('reserve_contributions')
-          .update({
-            'amount': amount,
-            'description': description,
-            'contribution_date': contributionDate
-                .toIso8601String()
-                .split('T')
-                .first,
-          })
-          .eq('id', contributionId)
-          .eq('user_id', user.id);
-
-      debugPrint('ReserveContributionService: aporte atualizado com sucesso.');
     } catch (e) {
       debugPrint('ReserveContributionService.updateContribution error: $e');
       rethrow;
@@ -72,19 +55,12 @@ class ReserveContributionService {
 
   Future<void> deleteContribution(String contributionId) async {
     try {
-      final user = _supabase.auth.currentUser;
+      final response = await ApiClient.delete('/reserve-contributions/$contributionId');
 
-      if (user == null) {
-        throw Exception('Usuário não autenticado.');
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(data['error'] ?? 'Erro ao excluir aporte.');
       }
-
-      await _supabase
-          .from('reserve_contributions')
-          .delete()
-          .eq('id', contributionId)
-          .eq('user_id', user.id);
-
-      debugPrint('ReserveContributionService: aporte excluído com sucesso.');
     } catch (e) {
       debugPrint('ReserveContributionService.deleteContribution error: $e');
       rethrow;
@@ -93,23 +69,15 @@ class ReserveContributionService {
 
   Future<List<ReserveContributionModel>> getRecentContributions() async {
     try {
-      final user = _supabase.auth.currentUser;
+      final response = await ApiClient.get('/reserve-contributions/?recent=true');
 
-      if (user == null) {
-        debugPrint('ReserveContributionService: usuário não autenticado.');
+      if (response.statusCode != 200) {
+        debugPrint('ReserveContributionService: erro ${response.statusCode}');
         return [];
       }
 
-      final data = await _supabase
-          .from('reserve_contributions')
-          .select()
-          .eq('user_id', user.id)
-          .order('contribution_date', ascending: false)
-          .limit(10);
-
-      return (data as List)
-          .map((item) => ReserveContributionModel.fromMap(item))
-          .toList();
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.map((item) => ReserveContributionModel.fromMap(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('ReserveContributionService.getRecentContributions error: $e');
       rethrow;
@@ -118,22 +86,15 @@ class ReserveContributionService {
 
   Future<List<ReserveContributionModel>> getAllContributions() async {
     try {
-      final user = _supabase.auth.currentUser;
+      final response = await ApiClient.get('/reserve-contributions/');
 
-      if (user == null) {
-        debugPrint('ReserveContributionService: usuário não autenticado.');
+      if (response.statusCode != 200) {
+        debugPrint('ReserveContributionService: erro ${response.statusCode}');
         return [];
       }
 
-      final data = await _supabase
-          .from('reserve_contributions')
-          .select()
-          .eq('user_id', user.id)
-          .order('contribution_date', ascending: false);
-
-      return (data as List)
-          .map((item) => ReserveContributionModel.fromMap(item))
-          .toList();
+      final list = jsonDecode(response.body) as List<dynamic>;
+      return list.map((item) => ReserveContributionModel.fromMap(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('ReserveContributionService.getAllContributions error: $e');
       rethrow;

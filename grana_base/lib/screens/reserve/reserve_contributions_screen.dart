@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../models/reserve_contribution_model.dart';
 import '../../services/reserve_contribution_service.dart';
 import 'add_reserve_contribution_screen.dart';
@@ -119,9 +120,7 @@ class _ReserveContributionsScreenState
     }
   }
 
-  String _formatCurrency(double value) {
-    return 'R\$ ${value.toStringAsFixed(2)}';
-  }
+  String _formatCurrency(double value) => formatCurrency(value);
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');

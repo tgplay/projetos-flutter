@@ -1,33 +1,24 @@
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
+import '../core/services/api_client.dart';
 import '../models/reserve_goal_model.dart';
 
 class ReserveGoalService {
-  final SupabaseClient _supabase = Supabase.instance.client;
-
   Future<ReserveGoalModel?> getReserveGoal() async {
     try {
-      final user = _supabase.auth.currentUser;
+      final response = await ApiClient.get('/reserve-goals/');
 
-      if (user == null) {
-        debugPrint('ReserveGoalService: usuário não autenticado.');
+      if (response.statusCode != 200) {
+        debugPrint('ReserveGoalService: erro ${response.statusCode}');
         return null;
       }
 
-      final data = await _supabase
-          .from('reserve_goals')
-          .select()
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
+      final body = response.body.trim();
+      if (body == 'null' || body.isEmpty) return null;
 
-      if (data == null) {
-        debugPrint('ReserveGoalService: nenhuma meta de reserva encontrada.');
-        return null;
-      }
-
-      return ReserveGoalModel.fromMap(data);
+      return ReserveGoalModel.fromMap(jsonDecode(body) as Map<String, dynamic>);
     } catch (e) {
       debugPrint('ReserveGoalService.getReserveGoal error: $e');
       rethrow;
@@ -39,19 +30,15 @@ class ReserveGoalService {
     String? description,
   }) async {
     try {
-      final user = _supabase.auth.currentUser;
-
-      if (user == null) {
-        throw Exception('Usuário não autenticado.');
-      }
-
-      await _supabase.from('reserve_goals').insert({
-        'user_id': user.id,
+      final response = await ApiClient.post('/reserve-goals/', {
         'target_amount': targetAmount,
         'description': description,
       });
 
-      debugPrint('ReserveGoalService: meta de reserva criada com sucesso.');
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(data['error'] ?? 'Erro ao criar meta.');
+      }
     } catch (e) {
       debugPrint('ReserveGoalService.createReserveGoal error: $e');
       rethrow;
@@ -64,12 +51,15 @@ class ReserveGoalService {
     String? description,
   }) async {
     try {
-      await _supabase
-          .from('reserve_goals')
-          .update({'target_amount': targetAmount, 'description': description})
-          .eq('id', reserveGoalId);
+      final response = await ApiClient.put('/reserve-goals/$reserveGoalId', {
+        'target_amount': targetAmount,
+        'description': description,
+      });
 
-      debugPrint('ReserveGoalService: meta de reserva atualizada com sucesso.');
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(data['error'] ?? 'Erro ao atualizar meta.');
+      }
     } catch (e) {
       debugPrint('ReserveGoalService.updateReserveGoal error: $e');
       rethrow;
