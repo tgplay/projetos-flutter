@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/services/sound_service.dart';
 import '../../models/category_model.dart';
 import '../../models/transaction_model.dart';
 import '../../services/category_service.dart';
@@ -173,6 +174,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
 
       if (!mounted) return;
+
+      if (!_isEditMode) {
+        if (_type == 'income') {
+          SoundService().playIncome();
+        } else {
+          SoundService().playExpense();
+        }
+      }
 
       Navigator.of(context).pop(true);
     } catch (e) {

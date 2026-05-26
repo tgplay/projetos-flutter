@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/sound_service.dart';
 import '../../models/reserve_contribution_model.dart';
 import '../../services/reserve_contribution_service.dart';
 
@@ -97,6 +98,8 @@ class _AddReserveContributionScreenState
       }
 
       if (!mounted) return;
+
+      if (!_isEditing) SoundService().playReserveContribution();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
